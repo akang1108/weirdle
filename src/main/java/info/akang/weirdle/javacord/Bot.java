@@ -9,20 +9,24 @@ import org.javacord.api.DiscordApiBuilder;
 @Slf4j
 public class Bot {
     public static void main(String[] args) throws Exception {
-        String token = System.getenv("DISCORD_BOT_TOKEN");
-        Bot bot = new Bot(token);
+        String tokenEnvVarName = "DISCORD_BOT_TOKEN";
+        String token = System.getenv(tokenEnvVarName);
+        if (token == null || "".equals(token.trim())) {
+            throw new IllegalArgumentException(tokenEnvVarName + " environment variable not set.");
+        }
+
+        new Bot(token);
     }
 
     private final DiscordApi api;
-    private final Play play;
     private final MessageListener listener;
 
     public Bot(String token) {
         api = new DiscordApiBuilder().setToken(token).login().join();
-        play = new Play();
+        Play play = new Play();
         listener = new JavacordMessageListener(play, api);
 
-        //printInvite();
+        printInvite();
         addListener();
     }
 
@@ -31,9 +35,6 @@ public class Bot {
     }
 
     public void addListener() {
-        api.addMessageCreateListener(event -> {
-            listener.onMessage(event);
-            //⬛🟧⬜🟦🟥🟫🟪🟩🟨
-        });
+        api.addMessageCreateListener(listener::onMessage);
     }
 }

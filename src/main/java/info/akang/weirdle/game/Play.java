@@ -5,6 +5,7 @@ import info.akang.weirdle.loader.Puzzle;
 import info.akang.weirdle.loader.Puzzles;
 import info.akang.weirdle.ui.DiscordBotDisplay;
 import info.akang.weirdle.ui.Display;
+import info.akang.weirdle.ui.Messages;
 
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -33,38 +34,49 @@ public class Play {
 
         this.scheduledExecutorService = Executors.newScheduledThreadPool(1);
         this.scheduledExecutorService.scheduleAtFixedRate(
-                () -> sessions.runEvictions(config.getSessionEvictionPeriodSeconds()),
+                () -> sessions.runEvictions(config.getSessionTimeToLiveSeconds()),
                 config.getSessionEvictionPeriodSeconds(),
                 config.getSessionEvictionPeriodSeconds(),
                 TimeUnit.SECONDS);
     }
 
-    public String start(User user) {
+    public Messages start(User user) {
         sessions.start(user);
         return startGame(user);
     }
 
-    public boolean gameInProgress(User user) {
-        return sessions.getSession(user) != null;
-    }
-
-    public String startGame(User user) {
+    public Messages startGame(User user) {
         Puzzle puzzle = puzzles.getPuzzle();
+
         Session session = sessions.startGame(user, puzzle);
+        session.updateLastActiveMs();
+
         return display.startGame(session);
     }
 
-    public String status(User user) {
+    public Messages status(User user) {
         Session session = sessions.getSession(user);
+
         if (session == null) {
-            return "No session, `@weirdle start` to start a game.";
+            return display.noSession();
         } else {
+            session.updateLastActiveMs();
             return display.puzzle(session);
         }
     }
 
-    public String guess(User user, String guess) {
+    public boolean hasSession(User user) {
+        return sessions.getSession(user) != null;
+    }
+
+    public Messages noSessionMessage(User user) {
+        return display.noSession();
+    }
+
+    public Messages guess(User user, String guess) {
         Session session = sessions.getSession(user);
+        session.updateLastActiveMs();
+
         Puzzle puzzle = session.getPuzzle();
 
         GuessCalculation guessCalculation = guessCalculator.calculate(guess, puzzle);
@@ -86,16 +98,26 @@ public class Play {
         }
     }
 
-    public String end(User user) {
+    public Messages giveUp(User user) {
+        Session session = sessions.getSession(user);
+        sessions.end(user);
+        return display.lose(session);
+    }
+
+    public Messages end(User user) {
         sessions.end(user);
         return display.end(user);
     }
 
-    public String usage(User user) {
+    public Messages usage(User user) {
         return display.usage(user);
     }
 
-    public String sessions(User user) {
+    public Messages sessions(User user) {
+        Session session = sessions.getSession(user);
+        if (session != null) {
+            session.updateLastActiveMs();
+        }
         return display.sessions(user, sessions);
     }
 }

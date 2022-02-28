@@ -15,6 +15,7 @@ Trying out Discord bot functionality. Made a small riddle guessing game as an ex
 
 - Used Discord and Heroku documentation
 - This blog also helped: https://medium.com/@nastyworldgamer/deploying-a-java-discord-bot-jar-on-heroku-32020474ffcd
+- Discord app setup: https://discord.com/developers/applications
 
 ## Run locally
 
@@ -46,8 +47,8 @@ export BOT_APP_NAME=weirdle-bot
 # Build and deploy
 ./mvnw clean heroku:deploy
 
-# Follow logs
-heroku logs --app $BOT_APP_NAME -f
+# Tail logs
+heroku logs --app $BOT_APP_NAME -t
 
 # Stop
 heroku ps:scale --app $BOT_APP_NAME worker=0

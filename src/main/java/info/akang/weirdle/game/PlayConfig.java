@@ -7,7 +7,7 @@ import lombok.Getter;
 @Builder
 public class PlayConfig {
     public static final PlayConfig DEFAULT = PlayConfig.builder()
-            .sessionTimeToLiveSeconds(30 * 60)
+            .sessionTimeToLiveSeconds(15 * 60)
             .sessionEvictionPeriodSeconds(60)
             .maxGuesses(8)
             .build();

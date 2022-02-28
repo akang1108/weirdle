@@ -3,6 +3,8 @@ package info.akang.weirdle.javacord;
 import info.akang.weirdle.game.MessageListener;
 import info.akang.weirdle.game.Play;
 import info.akang.weirdle.game.User;
+import info.akang.weirdle.ui.Message;
+import info.akang.weirdle.ui.Messages;
 import lombok.extern.slf4j.Slf4j;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.entity.message.MessageBuilder;
@@ -10,7 +12,6 @@ import org.javacord.api.event.message.MessageCreateEvent;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,6 +19,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class JavacordMessageListener implements MessageListener {
     public static final String WEIRDLE_NAME = "weirdle";
+    public static final String COMMAND_PREFIX = "w ";
 
     private final Play play;
     private final DiscordApi api;
@@ -31,37 +33,39 @@ public class JavacordMessageListener implements MessageListener {
     public boolean onMessage(MessageCreateEvent event) {
         if (isBotUserMentioned(event)) {
             return handleBotMentionedMessages(event);
+        } else {
+            return handleNonBotMentionedMessages(event);
         }
-        return false;
     }
 
     private boolean handleBotMentionedMessages(MessageCreateEvent event) {
-        String message = extractMessage(event.getMessage().getContent());
+        String msg = extractMessage(event.getMessage().getContent());
         User user = getAuthor(event);
 
-        if (message.startsWith("start")) {
+        if (msg.startsWith("start")) {
             sendMessage(play.startGame(user), event);
-        } else if (message.startsWith("end")) {
+        } else if (msg.startsWith("end")) {
             sendMessage(play.end(user), event);
-        } else if (message.startsWith("sessions")) {
+        } else if (msg.startsWith("sessions")) {
             sendMessage(play.sessions(user), event);
-        } else if (message.startsWith("help")) {
-            String msg = String.format("...%n**Bot invite:** %s%n%s", api.createBotInvite(), play.usage(user));
-            sendMessage(msg, event);
-        } else if (message.startsWith("status")) {
+        } else if (msg.startsWith("help")) {
+            sendMessage(play.usage(user), event);
+        } else if (msg.startsWith("status")) {
             sendMessage(play.status(user), event);
-        } else if (play.gameInProgress(user)) {
-            sendMessage(play.guess(user, message), event);
+        } else if (msg.startsWith("give up")) {
+            sendMessage(play.giveUp(user), event);
+        } else if (msg.startsWith("invite")) {
+            sendMessage(new Messages().msg(api.createBotInvite()), event);
+        } else if (play.hasSession(user)) {
+            sendMessage(play.guess(user, msg), event);
         } else {
-            sendMessage("Huh? 🍣🍣🍣🍣🍣🍣 \n" + play.usage(user), event);
+            sendMessage(play.usage(user), event);
         }
 
         return true;
     }
 
-    static final String COMMAND_PREFIX = "w ";
-
-    private boolean handleNonBotMessages(MessageCreateEvent event) {
+    private boolean handleNonBotMentionedMessages(MessageCreateEvent event) {
         String message = extractMessage(event.getMessage().getContent());
 
         if (!message.startsWith(COMMAND_PREFIX)) {
@@ -71,18 +75,21 @@ public class JavacordMessageListener implements MessageListener {
         User user = getAuthor(event);
         String msg = message.substring(COMMAND_PREFIX.length()).trim();
 
-        if (msg.startsWith("guess")) {
-            String guess = msg.substring("guess".length()).trim();
-            String m = play.guess(user, guess);
-            sendMessage(m, event);
-            return true;
-        } else if (msg.startsWith("end")) {
-            String m = play.end(user);
-            sendMessage(m, event);
-            return true;
+        if (! play.hasSession(user)) {
+            return false;
         }
 
-        return false;
+        if (msg.startsWith("help")) {
+            sendMessage(play.usage(user), event);
+        } else if (msg.startsWith("status")) {
+            sendMessage(play.status(user), event);
+        } else if (msg.startsWith("give up")) {
+            sendMessage(play.giveUp(user), event);
+        } else {
+            sendMessage(play.guess(user, msg), event);
+        }
+
+        return true;
     }
 
     protected String extractMessage(String message) {
@@ -104,9 +111,10 @@ public class JavacordMessageListener implements MessageListener {
 
     private boolean isBotUserMentioned(MessageCreateEvent event) {
         List<org.javacord.api.entity.user.User> mentionedUsers = event.getMessage().getMentionedUsers();
-        boolean mentionedUserInJavacordLib = mentionedUsers.stream().anyMatch(user -> user.isBot() && user.getName().equals(WEIRDLE_NAME));
+        boolean mentionedUserInJavacordLib = mentionedUsers.stream().anyMatch(user -> user.isBot() && user.getName().startsWith(WEIRDLE_NAME));
 
         boolean mentionedUserFoundInExtraction = false;
+
         // TODO: Seems like there is a bug possible, if I type `@weirdle something` fully with the space, without
         //  tabbing or enter for auto complete, then doesn't show up in mentioned users above in Javacord library.
         //  In the message it appears as <!&1234567> - (note the ampersand, not exclamation point)
@@ -116,10 +124,21 @@ public class JavacordMessageListener implements MessageListener {
         return mentionedUserInJavacordLib || mentionedUserFoundInExtraction;
     }
 
-    private void sendMessage(String msg, MessageCreateEvent event) {
-        new MessageBuilder()
-                .append(msg)
-                .send(event.getChannel());
+    private void sendMessage(Messages messages, MessageCreateEvent event) {
+        MessageBuilder messageBuilder = new MessageBuilder();
+
+        for (Message message: messages.getMessages()) {
+            switch (message.getType()) {
+                case DEFAULT:
+                    messageBuilder.append(message.getMsg());
+                    break;
+                case TYPE_1:
+                    messageBuilder.appendCode("java", message.getMsg());
+                    break;
+            }
+        }
+
+        messageBuilder.send(event.getChannel());
     }
 
     private User getAuthor(MessageCreateEvent event) {

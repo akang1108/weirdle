@@ -36,7 +36,7 @@ public class Sessions {
         return userIdSessions.size();
     }
 
-    public void runEvictions(long sessionEvictionPeriodSeconds) {
+    public void runEvictions(long sessionTimeToLiveSeconds) {
         long now = System.currentTimeMillis();
 
         log.debug("Pre-eviction, totalSessions: {}", userIdSessions.size());
@@ -47,7 +47,9 @@ public class Sessions {
                 continue;
             }
 
-            if (now - session.getLastActiveMs() > sessionEvictionPeriodSeconds * 1000) {
+            log.debug("inactiveTimeMs:{} ttlMs:{}", now - session.getLastActiveMs(), sessionTimeToLiveSeconds * 1000);
+
+            if ((now - session.getLastActiveMs()) > (sessionTimeToLiveSeconds * 1000)) {
                 userIdSessions.remove(user);
             }
         }

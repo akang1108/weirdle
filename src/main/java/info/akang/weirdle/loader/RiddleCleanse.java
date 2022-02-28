@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,7 +53,6 @@ public class RiddleCleanse {
         Files.write(path, bytes, StandardOpenOption.TRUNCATE_EXISTING);
     }
 
-
     Predicate<Puzzle> removeLongAnswers = p -> p.getAnswer().length() < 20;
 
     Pattern NUMBER_PATTERN = Pattern.compile(".*[0-9].*");
@@ -68,6 +66,7 @@ public class RiddleCleanse {
     Set<String> REMOVE_WORDS = Set.of("lol", "lolz");
     Set<String> REMOVE_STARTS_WITH = Set.of("a ", "i'm ", "i'm a", "i'm an", "an ", "the ", "your ", "i am ", "i am the ", "i am a ", "they are ");
     Set<String> QUESTION_REMOVE_STARTS_WITH = Set.of("{ ");
+    Set<String> QUESTION_REMOVE = Set.of("'");
 
     Function<Puzzle, Puzzle> removePunctuationAndWords = p -> {
         String cleansedAnswer = p.getAnswer().replaceAll("[^a-zA-Z0-9,'\" ]", "");
@@ -88,6 +87,9 @@ public class RiddleCleanse {
             if (cleansedQuestion.startsWith(removeStartsWith)) {
                 cleansedQuestion = cleansedQuestion.substring(removeStartsWith.length());
             }
+        }
+        for (String remove: QUESTION_REMOVE) {
+            cleansedQuestion = cleansedQuestion.replaceAll(remove, "");
         }
         return p.withMessage(cleansedQuestion);
     };

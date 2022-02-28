@@ -9,7 +9,6 @@ import info.akang.weirdle.guess.GuessValidationResponse;
 import info.akang.weirdle.loader.Puzzle;
 
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,12 +16,15 @@ public class DiscordBotDisplay implements Display {
     // ❎⏹️🔳🔲▪️▫️◾◽◼️◻️⬛⬜🟧🟦🟥🟫🟪🟩🟨❌
     // ✅ "🔲" "⬜" "⚠️"
     //"🇦 🇧 🇨 🇩 🇪 🇫 🇬 🇭 🇮 🇯 🇰 🇱 🇲 🇳 🇴 🇵 🇶 🇷 🇸 🇹 🇺 🇻 🇼 🇽 🇾 🇿"
+    //⬛🟧⬜🟦🟥🟫🟪🟩🟨
 
-    String SPACE = "⬜";
-    String NO_GUESS = "🔲";
-    String RIGHT = "✅";
-    String WRONG = "❌";
-    String WRONG_POSITION = "⚠️";
+    public static String SPACE = "⬜";
+    public static String NO_GUESS = "🔲";
+    public static String RIGHT = "✅";
+//    public static String WRONG = "❌";
+    public static String WRONG = "🟥";
+//    public static String WRONG_POSITION = "⚠️";
+    public static String WRONG_POSITION = "🟨";
     AlphabetEmoji alphabetEmoji = new AlphabetEmoji();
 
     private final PlayConfig config;
@@ -32,41 +34,44 @@ public class DiscordBotDisplay implements Display {
     }
 
     @Override
-    public String start(User user) {
-        return String.format("Hello %s, so weirddddd...", user.getName());
+    public Messages start(User user) {
+        String msg = String.format("Hello %s, so weirddddd...", user.getName());
+        return new Messages().msg1(msg);
     }
 
     @Override
-    public String end(User user) {
-        return String.format("%s, bye friend!", user.getName());
+    public Messages end(User user) {
+        String msg = String.format("%s, bye friend!", user.getName());
+        return new Messages().msg(msg);
     }
 
     @Override
-    public String win(Session session) {
-        return puzzle(session) + "\n" + "you won!";
+    public Messages win(Session session) {
+        Messages messages = puzzle(session);
+        return messages.msg("You won!");
     }
 
     @Override
-    public String invalid(GuessCalculation calculation) {
-        return calculation.getGuessValidationResponses().stream()
+    public Messages invalid(GuessCalculation calculation) {
+        String msg = calculation.getGuessValidationResponses().stream()
                 .map(GuessValidationResponse::getMessage)
                 .collect(Collectors.joining("\n"));
+        return new Messages().msg(msg);
     }
 
     @Override
-    public String lose(Session session) {
-        return String.format("%s%n**Answer:** %s%nYou lost!", puzzle(session), session.getPuzzle().getAnswer().toUpperCase());
+    public Messages lose(Session session) {
+        Messages messages = puzzle(session);
+        return messages.msg("You lost! The answer is: **" + session.getPuzzle().getAnswer().toUpperCase() + "**");
     }
 
     @Override
-    public String startGame(Session session) {
-        String msg = "Hi *" + session.getUser().getName() + "*! This is your puzzle:\n";
-        msg += puzzle(session);
-        return msg;
+    public Messages startGame(Session session) {
+        return puzzle(session);
     }
 
     @Override
-    public String puzzle(Session session) {
+    public Messages puzzle(Session session) {
         Puzzle puzzle = session.getPuzzle();
         GuessCalculation lastGuess = session.getLastGuess();
 
@@ -80,66 +85,76 @@ public class DiscordBotDisplay implements Display {
             answerSet.add(ans);
         }
 
-        String msg = String.format("...%n**Riddle:** %s%n", puzzle.getMessage());
-        msg += String.format("**Guesses:** %s/%s     **Num chars:** %s%n",
-                session.getNumGuesses(), config.getMaxGuesses(), answer.length);
+        // Puzzle question
+        String msg = String.format("%s%n%n", puzzle.getMessage());
 
+        String line1 = "";
+
+        // Puzzle answer
         for (int i = 0; i < answer.length; i++) {
             char ans = answer[i];
             Character gue = noGuesses ? null : guess[i];
 
             if (puzzle.getIgnore().contains(ans)) {
                 if (ans == ' ') {
-                    msg += SPACE;
+                    line1 += SPACE;
                 } else {
-                    msg += ans;
+                    line1 += ans;
                 }
             } else if (noGuesses) {
-                msg += NO_GUESS;
+                line1 += NO_GUESS;
             } else if (ans == gue) {
-                msg += Character.toUpperCase(gue);
+                line1 += Character.toUpperCase(gue);
             } else if (answerSet.contains(gue)) {
-                msg += WRONG_POSITION;
+                line1 += WRONG_POSITION;
             } else {
-                msg += WRONG;
+                line1 += WRONG;
             }
         }
+        msg += line1;
 
-        msg += "     command: `@weirdle {guess}`";
+        // Guesses
+        msg += String.format(" %s chars %s/%s%n", answer.length, session.getNumGuesses(), config.getMaxGuesses());
 
-        return msg;
+        return new Messages().msg1(msg);
     }
 
     @Override
-    public String usage(User user) {
-        String msg = "**Commands:**\n";
-        msg += "  @weirdle help\n";
-        msg += "  @weirdle start = start game\n";
-        msg += "  @weirdle {guess} = during a game, make a guess\n";
-        msg += "  @weirdle status = current game status\n";
-        msg += "  @weirdle sessions = show number of sessions\n";
-        msg += "  @weirdle end = end game\n";
+    public Messages usage(User user) {
+        String msg = "|\n";
+        msg += "**Commands:**\n";
+        msg += "  @weirdle help | start | end | sessions\n";
+        msg += "  w {guess} | status | give up\n";
 
-        msg += "**Key:**\n";
-        msg += "  " + NO_GUESS + " = initial state, no guess\n";
-        msg += "  " + SPACE + " = space\n";
-        msg += "  ABC... = character displayed if correct and in the right position\n";
-        msg += "  " + WRONG_POSITION + " = right correct in the wrong position\n";
-        msg += "  " + WRONG + " = wrong character\n";
+        msg += "**Key:**";
+        msg += "  " + NO_GUESS + " initial";
+        msg += " " + SPACE + " space";
+        msg += " " + WRONG_POSITION + " = wrong pos";
+        msg += " " + WRONG + " = wrong char\n";
 
-        msg += "\n**TL;DR;** `weirdle start`\n";
+        msg += "**Play:**\n";
+        msg += "  @weirdle start\n";
+        msg += "  w {guess}";
 
-        return msg;
+        return new Messages().msg(msg);
     }
 
     @Override
-    public String sessions(User user, Sessions sessions) {
-        String msg = String.format("Number of sessions: %s%n", sessions.getSessionsSize());
+    public Messages sessions(User user, Sessions sessions) {
+        String msg = String.format("Total Sessions: %s. ", sessions.getSessionsSize());
         Session userSession = sessions.getSession(user);
         if (userSession != null) {
             msg += "You have an active session.";
+        } else {
+            msg += "You do not have an active session. Type `@weirdle start` to start a game.";
         }
 
-        return msg;
+        return new Messages().msg(msg);
+    }
+
+    @Override
+    public Messages noSession() {
+        String msg = "You do not have an active session. Type `@weirdle start` to start a game.";
+        return new Messages().msg(msg);
     }
 }

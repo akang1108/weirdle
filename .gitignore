@@ -15,3 +15,6 @@ buildNumber.properties
 .classpath
 .idea
 *.iml
+
+# Project specific
+run.sh

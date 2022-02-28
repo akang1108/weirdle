@@ -36,13 +36,11 @@ public class Session {
     public Session startPlaying(Puzzle puzzle) {
         this.state = State.PLAYING;
         this.puzzle = puzzle;
-        updateLastActiveMs();
         return this;
     }
 
     public Session addGuess(GuessCalculation guessCalculation) {
         this.guesses.add(guessCalculation);
-        updateLastActiveMs();
         return this;
     }
 
